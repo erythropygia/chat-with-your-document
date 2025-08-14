@@ -1,0 +1,139 @@
+from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+import uvicorn
+import logging
+from pathlib import Path
+import sys
+
+sys.path.append(str(Path(__file__).parent.parent))
+
+from config import settings
+from backend.services.document_service import DocumentService
+from backend.services.rag_service import RAGService
+from backend.models.schemas import ChatRequest, ChatResponse
+
+logging.basicConfig(
+    level=getattr(logging, settings.log_level),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(settings.logs_dir / 'backend.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+document_service = DocumentService()
+rag_service = RAGService()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Starting Document Search API...")
+    await rag_service.initialize()
+    logger.info("API startup complete")
+    yield
+    logger.info("Shutting down Document Search API...")
+
+app = FastAPI(
+    title="Document Search API", 
+    description="AI-powered document search and Q&A system", 
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8501"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/")
+async def root():
+    return {"message": "Document Search API is running"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "document-search-api"}
+
+@app.post("/upload-document")
+async def upload_document(file: UploadFile = File(...)):
+    try:
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No file provided")
+        
+        file_extension = file.filename.split('.')[-1].lower()
+        if file_extension not in settings.allowed_extensions:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"File type not supported. Allowed: {', '.join(settings.allowed_extensions)}"
+            )
+        
+        content = await file.read()
+        file_size = len(content)
+        
+        if file_size > settings.max_file_size_mb * 1024 * 1024:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File too large. Max size: {settings.max_file_size_mb}MB"
+            )
+        
+        document_id = await document_service.process_document(file.filename, content)
+        await rag_service.add_documents_to_index(document_id)
+        
+        return {
+            "document_id": document_id,
+            "filename": file.filename,
+            "status": "processed",
+            "message": "Document uploaded and indexed successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error uploading document: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/documents")
+async def list_documents():
+    try:
+        documents = await document_service.list_documents()
+        return {"documents": documents}
+    except Exception as e:
+        logger.error(f"Error listing documents: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/chat", response_model=ChatResponse)
+async def chat(request: ChatRequest):
+    try:
+        response = await rag_service.query(
+            question=request.question,
+            document_ids=request.document_ids,
+            chat_history=request.chat_history,
+            language=request.language
+        )
+        return response
+    except Exception as e:
+        logger.error(f"Error in chat: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/documents/{document_id}")
+async def delete_document(document_id: str):
+    try:
+        await rag_service.remove_documents_from_index(document_id)
+        await document_service.delete_document(document_id)
+        return {"message": "Document deleted successfully"}
+    except Exception as e:
+        logger.error(f"Error deleting document: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/reset-db")
+async def reset_database():
+    try:
+        await rag_service.vector_store.reset_collection()
+        return {"message": "Database reset successfully"}
+    except Exception as e:
+        logger.error(f"Error resetting database: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host=settings.backend_host, port=settings.backend_port, reload=True, log_level=settings.log_level.lower())

@@ -1,0 +1,130 @@
+.stApp {
+    background-color: #1e1e1e;
+    color: #ffffff;
+}
+
+.main-header {
+    text-align: center;
+    padding: 2rem;
+    background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+    color: #ffffff;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    border: 1px solid #4a5568;
+}
+
+.main-header h1 {
+    color: #ffffff;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.main-header p {
+    color: #cbd5e0;
+    font-size: 1.1rem;
+}
+
+.document-card {
+    border: 1px solid #4a5568;
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 0.5rem 0;
+    background: #2d3748;
+    color: #ffffff;
+}
+
+.source-card {
+    border-left: 4px solid #68d391;
+    padding: 1rem;
+    margin: 0.5rem 0;
+    background: #2d3748;
+    border-radius: 4px;
+    color: #ffffff;
+}
+
+.chat-message {
+    padding: 1rem;
+    margin: 0.5rem 0;
+    border-radius: 8px;
+    border: 1px solid #4a5568;
+}
+
+.user-message {
+    background: #2a4365;
+    border-left: 4px solid #3182ce;
+    color: #ffffff;
+}
+
+.assistant-message {
+    background: #553c9a;
+    border-left: 4px solid #805ad5;
+    color: #ffffff;
+}
+
+.stSelectbox > div > div {
+    background-color: #2d3748;
+    color: #ffffff;
+}
+
+.stTextArea > div > div > textarea {
+    background-color: #2d3748;
+    color: #ffffff;
+    border: 1px solid #4a5568;
+}
+
+.stButton > button {
+    background-color: #3182ce;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.stButton > button:hover {
+    background-color: #2c5282;
+}
+
+.sidebar .stSelectbox > div > div {
+    background-color: #2d3748;
+    color: #ffffff;
+}
+
+.stFileUploader > div {
+    background-color: #2d3748;
+    border: 2px dashed #4a5568;
+    border-radius: 8px;
+}
+
+div[data-testid="metric-container"] {
+    background-color: #2d3748;
+    border: 1px solid #4a5568;
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.stExpander {
+    background-color: #2d3748;
+    border: 1px solid #4a5568;
+}
+
+.stMarkdown {
+    color: #ffffff;
+}
+
+.stAlert {
+    background-color: #2d3748;
+    color: #ffffff;
+    border: 1px solid #4a5568;
+}
+
+.language-selector {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1000;
+    background: #2d3748;
+    border: 1px solid #4a5568;
+    border-radius: 8px;
+    padding: 0.5rem;
+}
+
