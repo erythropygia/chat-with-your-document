@@ -31,37 +31,7 @@ class DocumentSearchApp:
     def __init__(self):
         self.backend_url = BACKEND_URL
     
-    def _clean_source_content(self, content: str) -> str:
-        rtf_patterns = [
-            r'\\f\d+',          
-            r'\\b\d*',          
-            r'\\cf\d+',         
-            r'\\strokec\d+',    
-            r'\\uc\d+',         
-            r'\\[a-zA-Z]+\d*',  
-            r'\\[\{\}\\]',      
-        ]
-        
-        cleaned_content = content
-        for pattern in rtf_patterns:
-            cleaned_content = re.sub(pattern, '', cleaned_content)
-        
-        try:
-            cleaned_content = cleaned_content.encode('utf-8').decode('unicode_escape')
-        except (UnicodeDecodeError, UnicodeEncodeError):
-            cleaned_content = re.sub(r'\\u([0-9a-fA-F]{4})', lambda m: chr(int(m.group(1), 16)), cleaned_content)
-        
-        try:
-            cleaned_content = re.sub(r"\\\'([a-fA-F0-9]{2})", 
-                                   lambda m: bytes.fromhex(m.group(1)).decode('latin-1'), 
-                                   cleaned_content)
-        except:
-            pass
-        
-        cleaned_content = re.sub(r'\s+', ' ', cleaned_content)
-        cleaned_content = cleaned_content.strip()
-        
-        return cleaned_content
+
         
     def check_backend_connection(self) -> bool:
         try:
@@ -229,13 +199,11 @@ def main():
                             for j, source in enumerate(message["sources"], 1):
                                 page_info = f" - Page {source['page_number']}" if source.get('page_number') else ""
                                 
-                                clean_source = app._clean_source_content(source['content'])
-                                
                                 st.markdown(f"""
                                 <div class="source-card">
                                     <strong>Source {j}: {source['document_name']}{page_info}</strong><br>
                                     <small>Similarity: {source['similarity_score']:.2%}</small><br><br>
-                                    {clean_source[:300]}...
+                                    {source['content'][:300]}...
                                 </div>
                                 """, unsafe_allow_html=True)
         

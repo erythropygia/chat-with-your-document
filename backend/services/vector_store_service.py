@@ -9,8 +9,8 @@ import chromadb
 from chromadb.config import Settings as ChromaSettings
 from sentence_transformers import SentenceTransformer
 import numpy as np
-import re
-import html
+import logging
+import os
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
@@ -28,84 +28,18 @@ class VectorStoreService:
         self.embedding_model = None
         self.document_service = DocumentService()
     
-    def _clean_text(self, text: str) -> str:
-        """Metin içeriğini temizler ve düzgün karakterlere dönüştürür."""
-        if not text:
-            return text
 
-        try:
-            # 1. Adım: Temel temizlik
-            cleaned = text.strip()
-            
-            # 2. Adım: HTML entity'leri düzelt
-            cleaned = html.unescape(cleaned)
-            
-            # 3. Adım: RTF formatlamalarını temizle
-            rtf_patterns = [
-                r'\\[a-zA-Z]+\d*',    # \f0, \b, \cf0 gibi
-                r'\\[\{\}\\\']',      # \{, \}, \\, \'
-                r'\\[0-9]+',          # \12345 gibi sayılar
-                r'\\\(.*?\\\)',       # \(...\) yapıları
-                r'\\[a-zA-Z]',        # Tek karakterli RTF komutları
-            ]
-            for pattern in rtf_patterns:
-                cleaned = re.sub(pattern, '', cleaned)
-            
-            # 4. Adım: Karakter eşlemeleri
-            char_mappings = {
-                # Temel Türkçe karakterler
-                "Ã§": "ç", "Ã¼": "ü", "Ä±": "ı", "ÅŸ": "ş",
-                "Ã¶": "ö", "Ã‡": "Ç", "Ãœ": "Ü", "Ä°": "İ",
-                "Åž": "Ş", "ÄŸ": "ğ", "Äž": "Ğ",
-                
-                # Çift kodlanmış karakterler
-                "Ã¢ÂÂ": '"', "Ã¢Â€Â": '"', "Ã¢Â€Â˜": "'",
-                
-                # Yaygın hatalar
-                "ÃÂ": "İ", "Ã": "ı", "Â": "",
-                "Ä°": "İ", "Ä±": "ı", "Åž": "Ş",
-                "ÅŸ": "ş", "Ã§": "ç", "ÄŸ": "ğ"
-            }
-            
-            # 5. Adım: Karakter düzeltmelerini uygula (3 kez)
-            for _ in range(3):
-                for old, new in char_mappings.items():
-                    cleaned = cleaned.replace(old, new)
-            
-            # 6. Adım: Unicode escape'leri çöz
-            cleaned = re.sub(
-                r'\\u([0-9a-fA-F]{4})',
-                lambda m: chr(int(m.group(1), 16)),
-                cleaned
-            )
-            
-            # 7. Adım: Son temizlik
-            cleaned = re.sub(r'\s+', ' ', cleaned)
-            cleaned = cleaned.strip()
-            
-            return cleaned
-            
-        except Exception as e:
-            logger.error(f"Error cleaning text: {str(e)}")
-            return text
     
     async def reset_collection(self):
-        """Koleksiyonu sıfırlar"""
         if self.collection:
             self.collection.delete(where={})
             logger.info("Collection reset completed")
     
     async def initialize(self):
-        try:
-            # Disable ChromaDB telemetry completely
-            import logging
-            import os
-            
-            # Disable telemetry via environment variables
+        try:     
             os.environ["ANONYMIZED_TELEMETRY"] = "False"
             os.environ["CHROMA_TELEMETRY"] = "False"
             
-            # Disable all ChromaDB telemetry loggers
             logging.getLogger("chromadb.telemetry").setLevel(logging.CRITICAL)
             logging.getLogger("chromadb.telemetry.product").setLevel(logging.CRITICAL)
             logging.getLogger("chromadb.telemetry.product.posthog").setLevel(logging.CRITICAL)
@@ -144,9 +78,7 @@ class VectorStoreService:
             ids = []
             
             for chunk_data in chunks_data:
-                # İçeriği temizle ve öyle kaydet
-                cleaned_content = self._clean_text(chunk_data["content"])
-                documents.append(cleaned_content)
+                documents.append(chunk_data["content"])
                 
                 metadata = {
                     "document_id": document_id,
@@ -203,11 +135,9 @@ class VectorStoreService:
                 )):
                     similarity_score = 1.0 - distance
                     
-                    # İçeriği temizle ve öyle döndür
-                    cleaned_content = self._clean_text(doc)
                     chunk = DocumentChunk(
                         chunk_id=results["ids"][0][i],
-                        content=cleaned_content,
+                        content=doc,
                         document_id=metadata["document_id"],
                         document_name=metadata["document_name"],
                         page_number=metadata.get("page_number"),

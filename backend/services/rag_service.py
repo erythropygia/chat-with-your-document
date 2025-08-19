@@ -57,7 +57,6 @@ class RAGService:
             
             processing_time = time.time() - start_time
             
-            # Log chat interaction for fine-tuning
             self.chat_logger.log_chat_interaction(
                 question=question,
                 response=response,

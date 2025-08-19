@@ -41,10 +41,9 @@ class ChatLogger:
             },
             "sources": sources or [],
             "chat_history": chat_history or [],
-            "context": context[:1000] if context else ""  # First 1000 chars only
+            "context": context[:1000] if context else ""
         }
         
-        # Save to daily log file
         date_str = datetime.now().strftime("%Y-%m-%d")
         log_file = self.chat_logs_dir / f"chat_log_{date_str}.jsonl"
         
@@ -52,7 +51,6 @@ class ChatLogger:
             with open(log_file, "a", encoding="utf-8") as f:
                 f.write(json.dumps(chat_data, ensure_ascii=False) + "\n")
         except Exception:
-            # Silent fail - don't interrupt chat if logging fails
             pass
             
         return chat_id

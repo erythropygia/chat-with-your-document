@@ -98,7 +98,7 @@ class LLMService:
             response = await acompletion(
                 model=self.model_name,
                 messages=messages,
-                max_tokens=500,
+                max_tokens=1024,
                 temperature=0.5
             )
             

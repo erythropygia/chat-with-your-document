@@ -45,10 +45,7 @@ class DocumentService:
             chunks = self.text_splitter.split_documents(documents)
             
             processed_chunks = []
-            for i, chunk in enumerate(chunks):
-                # Clean RTF and Unicode formatting from content
-                chunk.page_content = self._clean_rtf_content(chunk.page_content)
-                
+            for i, chunk in enumerate(chunks):               
                 chunk.metadata.update({
                     "document_id": document_id,
                     "document_name": filename,
@@ -172,42 +169,3 @@ class DocumentService:
         except Exception as e:
             logger.error(f"Error deleting document {document_id}: {str(e)}")
             raise
-    
-    def _clean_rtf_content(self, content: str) -> str:
-        """Clean RTF formatting and decode properly to UTF-8"""
-        
-        # Remove RTF formatting codes
-        rtf_patterns = [
-            r'\\f\d+',          # Font codes like \f0, \f1
-            r'\\b\d*',          # Bold codes like \b, \b0
-            r'\\cf\d+',         # Color codes like \cf0, \cf2
-            r'\\strokec\d+',    # Stroke color codes
-            r'\\uc\d+',         # Unicode character count
-            r'\\[a-zA-Z]+\d*',  # Other RTF control words
-            r'\\[\{\}\\]',      # Escaped RTF characters
-        ]
-        
-        cleaned_content = content
-        for pattern in rtf_patterns:
-            cleaned_content = re.sub(pattern, '', cleaned_content)
-        
-        # Decode Unicode escape sequences (\u305 -> proper Unicode)
-        try:
-            cleaned_content = cleaned_content.encode('utf-8').decode('unicode_escape')
-        except (UnicodeDecodeError, UnicodeEncodeError):
-            # If that fails, try manual replacement
-            cleaned_content = re.sub(r'\\u([0-9a-fA-F]{4})', lambda m: chr(int(m.group(1), 16)), cleaned_content)
-        
-        # Decode hex escape sequences (\'e7 -> ç)
-        try:
-            cleaned_content = re.sub(r"\\\'([a-fA-F0-9]{2})", 
-                                   lambda m: bytes.fromhex(m.group(1)).decode('latin-1'), 
-                                   cleaned_content)
-        except:
-            pass
-        
-        # Clean up extra spaces and newlines
-        cleaned_content = re.sub(r'\s+', ' ', cleaned_content)
-        cleaned_content = cleaned_content.strip()
-        
-        return cleaned_content
