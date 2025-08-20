@@ -87,18 +87,19 @@ def main():
     if "language" not in st.session_state:
         st.session_state.language = "en"
     
-    st.markdown('<div class="language-selector">', unsafe_allow_html=True)
-    language = st.selectbox(
-        "",
-        options=list(LANGUAGES.keys()),
-        format_func=lambda x: f"Response Language: {LANGUAGES[x]}",
-        index=list(LANGUAGES.keys()).index(st.session_state.language),
-        key="language_selector"
-    )
-    if language != st.session_state.language:
-        st.session_state.language = language
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+    with st.container():
+        st.markdown('<div class="language-selector">', unsafe_allow_html=True)
+        language = st.selectbox(
+            "",
+            options=list(LANGUAGES.keys()),
+            format_func=lambda x: f"Response Language: {LANGUAGES[x]}",
+            index=list(LANGUAGES.keys()).index(st.session_state.language),
+            key="language_selector"
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+        if language != st.session_state.language:
+            st.session_state.language = language
+            st.rerun()
     
     st.markdown("""
     <div class="main-header">
@@ -179,12 +180,13 @@ def main():
                     st.markdown(f"""
                     <div class="chat-message user-message">
                         <strong>You:</strong><br>
-                        {message["content"]}
+                        {html.escape(message["content"])}
                     </div>
                     """, unsafe_allow_html=True)
                 else:
                     clean_message = html.unescape(message["content"])
                     clean_message = re.sub(r'<[^>]+>', '', clean_message)
+                    clean_message = html.escape(clean_message)
                     
                     st.markdown(f"""
                     <div class="chat-message assistant-message">
@@ -196,13 +198,15 @@ def main():
                     if "sources" in message and message["sources"]:
                         with st.expander(f"Sources ({len(message['sources'])} found)"):
                             for j, source in enumerate(message["sources"], 1):
-                                page_info = f" - Page {source['page_number']}" if source.get('page_number') else ""
+                                page_info = f" - Page {source['page_number']}" if source.get('page_number', '') else ""
+                                content_preview = html.escape(source['content'][:300])
+                                document_name = html.escape(source['document_name'])
                                 
                                 st.markdown(f"""
                                 <div class="source-card">
-                                    <strong>Source {j}: {source['document_name']}{page_info}</strong><br>
+                                    <strong>Source {j}: {document_name}{page_info}</strong><br>
                                     <small>Similarity: {source['similarity_score']:.2%}</small><br><br>
-                                    {source['content'][:300]}...
+                                    {content_preview}...
                                 </div>
                                 """, unsafe_allow_html=True)
         
