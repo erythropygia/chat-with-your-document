@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 
 st.set_page_config(
-    page_title="Search on Documents",
+    page_title="Chat With Your Document",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -101,8 +101,8 @@ def main():
     
     st.markdown("""
     <div class="main-header">
-        <h1>Search on Documents</h1>
-        <p>Chat with your documents</p>
+        <h1>Chat With Your Document</h1>
+        <p>Ask questions about your documents</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -162,10 +162,10 @@ def main():
         with col2:
             if documents:
                 selected_docs = st.multiselect(
-                    "Search in specific documents",
+                    "Limit chat to specific documents",
                     options=[doc['document_id'] for doc in documents],
                     format_func=lambda x: next(doc['filename'] for doc in documents if doc['document_id'] == x),
-                    help="Leave empty to search all documents"
+                    help="Leave empty to use all documents"
                 )
             else:
                 selected_docs = []
