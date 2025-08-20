@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional
 import time
 from pathlib import Path
 import re
+import html
 
 st.set_page_config(
     page_title="Chat With Your Document",
@@ -182,8 +183,6 @@ def main():
                     </div>
                     """, unsafe_allow_html=True)
                 else:
-                    # Clean HTML tags from message content for display
-                    import html
                     clean_message = html.unescape(message["content"])
                     clean_message = re.sub(r'<[^>]+>', '', clean_message)
                     

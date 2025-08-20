@@ -83,7 +83,6 @@ class DocumentService:
             elif file_extension == ".docx":
                 loader = Docx2txtLoader(str(file_path))
             elif file_extension in [".txt", ".md"]:
-                # Detect encoding using chardet
                 with open(file_path, 'rb') as f:
                     raw_data = f.read()
                     result = chardet.detect(raw_data)

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import sys
 import subprocess
 import time
@@ -7,17 +6,14 @@ import threading
 import os
 from pathlib import Path
 
-# Disable various logging before starting anything
 os.environ["LITELLM_LOG"] = "ERROR"
 os.environ["HTTPX_LOG_LEVEL"] = "ERROR"
 os.environ["URLLIB3_DISABLE_WARNINGS"] = "1"
 os.environ["STREAMLIT_LOG_LEVEL"] = "error"
 
-# Disable ChromaDB telemetry
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
 os.environ["CHROMA_TELEMETRY"] = "False"
 
-# Configure logging
 import logging
 logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 logging.getLogger("streamlit").setLevel(logging.ERROR)
