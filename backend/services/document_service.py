@@ -270,42 +270,31 @@ class DocumentService:
             return json.load(f)
     
     async def _extract_images_from_docx(self, docx_path: Path, document_id: str) -> List[Dict[str, Any]]:
-        """Extract images from DOCX and save them"""
         try:
-            # Create images directory for this document
             images_dir = settings.documents_dir / "images" / document_id
             images_dir.mkdir(parents=True, exist_ok=True)
             
             extracted_images = []
             
-            # Open DOCX as zip file to extract images
             with zipfile.ZipFile(docx_path, 'r') as docx_zip:
-                # Find all image files in the media folder
                 image_files = [f for f in docx_zip.namelist() if f.startswith('word/media/') and 
                              any(f.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.bmp'])]
                 
                 for idx, image_file in enumerate(image_files):
                     try:
-                        # Extract image data
                         image_data = docx_zip.read(image_file)
-                        
-                        # Create PIL Image to check size and convert
                         pil_image = Image.open(io.BytesIO(image_data))
-                        
-                        # Skip if image is too small (likely decorative)
+   
                         if pil_image.width < 50 or pil_image.height < 50:
                             continue
                         
-                        # Convert to RGB if necessary and save as PNG
                         if pil_image.mode != 'RGB':
                             pil_image = pil_image.convert('RGB')
                         
-                        # Save image
                         image_filename = f"docx_img_{idx + 1}.png"
                         image_path = images_dir / image_filename
                         pil_image.save(image_path, "PNG")
                         
-                        # Store image metadata
                         image_info = {
                             "image_id": f"{document_id}_docx_i{idx + 1}",
                             "image_path": str(image_path),
