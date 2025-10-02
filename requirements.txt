@@ -28,3 +28,10 @@ aiofiles==23.2.0
 numpy==1.24.3
 pandas==2.1.4
 pyyaml==6.0.1
+
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.30.0
+Pillow>=9.0.0
+PyMuPDF>=1.23.0
+python-docx>=0.8.11

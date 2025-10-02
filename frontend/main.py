@@ -32,8 +32,6 @@ class DocumentSearchApp:
     def __init__(self):
         self.backend_url = BACKEND_URL
     
-
-        
     def check_backend_connection(self) -> bool:
         try:
             response = requests.get(f"{self.backend_url}/health", timeout=5)
@@ -76,6 +74,28 @@ class DocumentSearchApp:
             return response.json()
         except Exception as e:
             return {"error": str(e)}
+    
+    def search_images(self, query: str, document_ids: Optional[List[str]] = None, limit: int = 5) -> Dict[str, Any]:
+        try:
+            params = {
+                "query": query,
+                "limit": limit
+            }
+            if document_ids:
+                params["document_ids"] = ",".join(document_ids)
+            
+            response = requests.get(f"{self.backend_url}/search-images", params=params)
+            return response.json()
+        except Exception as e:
+            return {"error": str(e)}
+    
+    def get_document_images(self, document_id: str) -> Dict[str, Any]:
+        """Get all images for a specific document"""
+        try:
+            response = requests.get(f"{self.backend_url}/documents/{document_id}/images")
+            return response.json()
+        except Exception as e:
+            return {"error": str(e)}
 
 def main():
     app = DocumentSearchApp()
@@ -86,6 +106,8 @@ def main():
         st.session_state.documents = []
     if "language" not in st.session_state:
         st.session_state.language = "en"
+    if "current_tab" not in st.session_state:
+        st.session_state.current_tab = "Chat"
     
     with st.container():
         st.markdown('<div class="language-selector">', unsafe_allow_html=True)
@@ -104,7 +126,7 @@ def main():
     st.markdown("""
     <div class="main-header">
         <h1>Chat With Your Document</h1>
-        <p>Ask questions about your documents</p>
+        <p>Ask questions about your documents and see related images</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -156,21 +178,24 @@ def main():
         else:
             st.info("No documents uploaded yet")
     
+    render_chat_interface(app, documents)
+
+def render_chat_interface(app, documents):
     col1, col2 = st.columns([3, 1])
+    
+    with col2:
+        if documents:
+            selected_docs = st.multiselect(
+                "Limit chat to specific documents",
+                options=[doc['document_id'] for doc in documents],
+                format_func=lambda x: next(doc['filename'] for doc in documents if doc['document_id'] == x),
+                help="Leave empty to use all documents"
+            )
+        else:
+            selected_docs = []
     
     with col1:
         st.header("Chat Interface")
-        
-        with col2:
-            if documents:
-                selected_docs = st.multiselect(
-                    "Limit chat to specific documents",
-                    options=[doc['document_id'] for doc in documents],
-                    format_func=lambda x: next(doc['filename'] for doc in documents if doc['document_id'] == x),
-                    help="Leave empty to use all documents"
-                )
-            else:
-                selected_docs = []
         
         chat_container = st.container()
         
@@ -195,8 +220,52 @@ def main():
                     </div>
                     """, unsafe_allow_html=True)
                     
+                    if "images" in message and message["images"]:
+                        st.markdown("**Related Images:**")
+                        cols = st.columns(min(3, len(message["images"])))
+                        for idx, image_info in enumerate(message["images"][:3]):
+                            with cols[idx % 3]:
+                                try:
+                                    image_path = Path(image_info["image_path"])
+                                    image_filename = image_path.name
+                                    image_url = f"{app.backend_url}/images/{image_info['document_id']}/{image_filename}"
+                                    
+                                    st.image(
+                                        image_url,
+                                        caption=f"{image_info['document_name']} - Page {image_info.get('page_number', 'N/A')}",
+                                        use_column_width=True
+                                    )
+                                    
+                                    similarity_percent = image_info['similarity_score'] * 100
+                                    st.caption(f"Similarity: {similarity_percent:.1f}%")
+                                    
+                                except Exception as e:
+                                    st.error(f"Error loading image: {str(e)}")
+                        
+                        if len(message["images"]) > 3:
+                            with st.expander(f"Show {len(message['images']) - 3} more images"):
+                                remaining_cols = st.columns(3)
+                                for idx, image_info in enumerate(message["images"][3:]):
+                                    with remaining_cols[idx % 3]:
+                                        try:
+                                            image_path = Path(image_info["image_path"])
+                                            image_filename = image_path.name
+                                            image_url = f"{app.backend_url}/images/{image_info['document_id']}/{image_filename}"
+                                            
+                                            st.image(
+                                                image_url,
+                                                caption=f"{image_info['document_name']} - Page {image_info.get('page_number', 'N/A')}",
+                                                use_column_width=True
+                                            )
+                                            
+                                            similarity_percent = image_info['similarity_score'] * 100
+                                            st.caption(f"Similarity: {similarity_percent:.1f}%")
+                                            
+                                        except Exception as e:
+                                            st.error(f"Error loading image: {str(e)}")
+                    
                     if "sources" in message and message["sources"]:
-                        with st.expander(f"Sources ({len(message['sources'])} found)"):
+                        with st.expander(f"Text Sources ({len(message['sources'])} found)"):
                             for j, source in enumerate(message["sources"], 1):
                                 page_info = f" - Page {source['page_number']}" if source.get('page_number', '') else ""
                                 content_preview = html.escape(source['content'][:300])
@@ -216,13 +285,13 @@ def main():
             st.warning("Upload documents to start asking questions.")
         else:
             with st.form(key="chat_form", clear_on_submit=True):
-                question =             st.text_area(
-                "Question",
-                placeholder="Ask a question about your documents...",
-                height=100,
-                key="question_input",
-                label_visibility="collapsed"
-            )
+                question = st.text_area(
+                    "Question",
+                    placeholder="Ask a question about your documents...",
+                    height=100,
+                    key="question_input",
+                    label_visibility="collapsed"
+                )
                 
                 col_send, col_clear = st.columns([5, 1])
                 
@@ -259,10 +328,24 @@ def main():
                         if "error" in response:
                             st.error(f"Error: {response['error']}")
                         else:
+                            # Search for related images
+                            images = []
+                            try:
+                                image_result = app.search_images(
+                                    query=question,
+                                    document_ids=selected_docs if selected_docs else None,
+                                    limit=5
+                                )
+                                if "images" in image_result and not "error" in image_result:
+                                    images = image_result["images"]
+                            except Exception as e:
+                                print(f"Image search failed: {str(e)}")
+                            
                             assistant_message = {
                                 "role": "assistant",
                                 "content": response["answer"],
                                 "sources": response.get("sources", []),
+                                "images": images,
                                 "timestamp": datetime.now().isoformat()
                             }
                             st.session_state.chat_history.append(assistant_message)

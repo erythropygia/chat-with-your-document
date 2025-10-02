@@ -12,6 +12,7 @@ from backend.models.schemas import ChatResponse, DocumentChunk, ChatMessage
 from backend.services.vector_store_service import VectorStoreService
 from backend.services.llm_service import LLMService
 from backend.services.chat_logger import ChatLogger
+from backend.services.document_service import DocumentService
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ class RAGService:
         self.vector_store = VectorStoreService()
         self.llm_service = LLMService()
         self.chat_logger = ChatLogger()
+        self.document_service = DocumentService()
         self.initialized = False
     
     async def initialize(self):
@@ -107,8 +109,59 @@ class RAGService:
     async def add_documents_to_index(self, document_id: str):
         try:
             await self.vector_store.add_document(document_id)
+            await self.add_images_to_index(document_id)
+            
         except Exception as e:
             logger.error(f"Error adding document to index: {str(e)}")
+            raise
+    
+    async def add_images_to_index(self, document_id: str):
+        try:
+            documents = await self.document_service.list_documents()
+            document_name = None
+            for doc in documents:
+                if doc.document_id == document_id:
+                    document_name = doc.filename
+                    break
+            
+            if not document_name:
+                logger.warning(f"Document name not found for ID: {document_id}")
+                return
+            
+            images = await self.document_service.get_document_images(document_id)
+            
+            if not images:
+                logger.info(f"No images found for document {document_id}")
+                return
+            
+            for image_info in images:
+                await self.vector_store.add_image(
+                    image_path=image_info["image_path"],
+                    document_id=document_id,
+                    document_name=document_name,
+                    page_number=image_info.get("page_number")
+                )
+            
+            logger.info(f"Added {len(images)} images to vector store for document {document_id}")
+            
+        except Exception as e:
+            logger.error(f"Error adding images to index: {str(e)}")
+    
+    async def search_images(self, query: str, document_ids: Optional[List[str]] = None, k: int = 5) -> List[Dict[str, Any]]:
+        try:
+            if not self.initialized:
+                await self.initialize()
+            
+            images = await self.vector_store.search_images_by_text(
+                query=query,
+                document_ids=document_ids,
+                k=k
+            )
+            
+            return images
+            
+        except Exception as e:
+            logger.error(f"Error searching images: {str(e)}")
             raise
     
     async def remove_documents_from_index(self, document_id: str):

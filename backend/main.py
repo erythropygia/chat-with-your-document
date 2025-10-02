@@ -1,10 +1,12 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 import uvicorn
 import logging
 from pathlib import Path
 import sys
+from typing import Optional, List
 
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -133,6 +135,71 @@ async def reset_database():
         return {"message": "Database reset successfully"}
     except Exception as e:
         logger.error(f"Error resetting database: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/search-images")
+async def search_images(
+    query: str = Query(..., description="Search query for images"),
+    document_ids: Optional[str] = Query(None, description="Comma-separated document IDs to search in"),
+    limit: int = Query(5, ge=1, le=20, description="Number of images to return")
+):
+    try:
+        doc_ids = None
+        if document_ids:
+            doc_ids = [doc_id.strip() for doc_id in document_ids.split(",") if doc_id.strip()]
+        
+        images = await rag_service.search_images(
+            query=query,
+            document_ids=doc_ids,
+            k=limit
+        )
+        
+        return {
+            "query": query,
+            "total_found": len(images),
+            "images": images
+        }
+        
+    except Exception as e:
+        logger.error(f"Error searching images: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/images/{document_id}/{image_filename}")
+async def get_image(document_id: str, image_filename: str):
+    try:
+        image_path = settings.documents_dir / "images" / document_id / image_filename
+        
+        if not image_path.exists():
+            raise HTTPException(status_code=404, detail="Image not found")
+        
+        return FileResponse(
+            path=str(image_path),
+            media_type="image/png",
+            filename=image_filename
+        )
+        
+    except Exception as e:
+        logger.error(f"Error serving image: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/documents/{document_id}/images")
+async def get_document_images(document_id: str):
+    try:
+        images = await document_service.get_document_images(document_id)
+        
+        # Add URL paths for frontend access
+        for image in images:
+            filename = Path(image["image_path"]).name
+            image["url"] = f"/images/{document_id}/{filename}"
+        
+        return {
+            "document_id": document_id,
+            "total_images": len(images),
+            "images": images
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting document images: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
